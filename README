@@ -1,0 +1,64 @@
+To compile:
+
+    gcc -std=c99 -Wall -pedantic -o main main.c -lm
+
+
+To Run:
+
+./main fs2
+
+
+EXAMPLE: 
+--> Enter command: ls
+.
+..
+
+357
+
+alex
+
+jake
+
+--> Enter command: cd jake
+
+
+--> Enter command: ls
+
+.
+..
+
+jakesdiary
+
+--> Enter command: cd jakesdiary
+
+
+--> Enter command: ls
+
+.
+
+..
+
+poopedtoday
+
+ligmaballs
+
+--> Enter command: cd ligmaballs
+
+
+--> Enter command: ls
+
+.
+
+..
+
+--> Enter command: touch fart
+
+--> Enter command: ls
+
+.
+
+..
+
+fart
+
+--> Enter command: exit

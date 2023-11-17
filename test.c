@@ -70,13 +70,13 @@ void loadInode(uint32_t inode, char type, int total) {
     char foundName[MAX_NAME_LENGTH] = {'\0'};
 
     while (fread(&character, sizeof(char), 1, file) == 1) {
+        printf("%d", character);
         if (char_count == 1) {
             prev = character;
             if (type == 'd') {
                 // printf("This is a directory! %d\n", character);
             } else {
-                printf("%c", character);
-                //strncat(foundName, &character, 1);
+                //printf("%c", character);
             }
         } else {
             curr = character;
@@ -84,24 +84,20 @@ void loadInode(uint32_t inode, char type, int total) {
                 if (!isprint(curr) && curr != 46) {
                     //printf("INODE #%d:", character);
                 } else {
-                    printf("%c", character);
-                    //strncat(foundName, &character, 1);
+                    //printf("%c", character);
                 }
             } else if (prev != 0 && curr != 0) {
                 if (isprint(curr)) {
-                    printf("%c", character);
-                    //strncat(foundName, &character, 1);
+                    //printf("%c", character);
                 }
             } else if (prev != 0 && curr == 0) {
                 //printf("Add null terminator. String is done!\n");
                 if (foundName[0] != '\0') {
                     //printf("%s\n", foundName);
-                    // memset(foundName, 0, sizeof(foundName));
                 }
                 printf("\n");
             }
         }
-
         char_count = char_count + 1;
         prev = character;
     }
@@ -137,7 +133,7 @@ void loadInodesList(char *filename) {
             inode = character;
         } else if(character != 0) {
             type = character;
-            // printf("NEW FILE/DIR: %d, %c\n", inode, type);
+            //printf("NEW FILE/DIR: %d, %c\n", inode, type);
             iNodesList[index].inode = inode;
             iNodesList[index].type = type;
             index = index + 1;
@@ -216,7 +212,7 @@ void cd(const char *directory){
                     if (strcmp(foundName, directory) == 0) {
                         errorMessage = false;
                         if (iNodesList[(int) (temp_inode)].type == 'f'){
-                            printf("Error: You cannot cd into a file. Ex: cd <directory>\n");
+                            printf("\nError: You cannot cd into a file. Ex: cd <directory>\n");
                             break;
                         }
                         currentINode.parentInode = currentINode.inode;
@@ -250,6 +246,27 @@ void cd(const char *directory){
 }
 
 void mkdir(const char* directory) {
+    // Check if directory already exists in the current directory
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "%s/%u", dir, currentINode.inode);
+    FILE *dirFile = fopen(filepath, "rb");
+    if (dirFile == NULL) {
+        perror("Error opening directory file");
+        return;
+    }
+
+    uint32_t temp_inode;
+    char nameBuffer[MAX_NAME_LENGTH];
+    while (fread(&temp_inode, sizeof(uint32_t), 1, dirFile) == 1) {
+        fread(nameBuffer, sizeof(char), MAX_NAME_LENGTH, dirFile);
+        if (strcmp(nameBuffer, directory) == 0) {
+            printf("\nError: Directory '%s' already exists.\n", directory);
+            fclose(dirFile);
+            return;
+        }
+    }
+    fclose(dirFile);
+
     strcpy(iNodesList[index].name, directory);
     iNodesList[index].parentInode = currentINode.inode;
     iNodesList[index].inode = (uint32_t) index;
@@ -287,9 +304,12 @@ void mkdir(const char* directory) {
         exit(1);
     }
 
+    char entry3[MAX_NAME_LENGTH] = {'0'};
+    strcpy(entry3, directory);
+
     // Append new directory entry to parent directory
     fwrite(&index, sizeof(uint32_t), 1, file); // Write new directory's inode number
-    fwrite(directory, sizeof(char), strlen(directory) + 1, file); // Write new directory's name
+    fwrite(entry3, sizeof(char), MAX_NAME_LENGTH, file); // Write new directory's name
 
     // Close the file
     fclose(file);
@@ -315,15 +335,37 @@ void mkdir(const char* directory) {
 }
 
 void touch(const char* filename) {
+    // Check if file already exists in the current directory
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "%s/%u", dir, currentINode.inode);
+    FILE *dirFile = fopen(filepath, "rb");
+    if (dirFile == NULL) {
+        perror("Error opening directory file");
+        return;
+    }
+
+    uint32_t temp_inode;
+    char nameBuffer[MAX_NAME_LENGTH];
+    while (fread(&temp_inode, sizeof(uint32_t), 1, dirFile) == 1) {
+        fread(nameBuffer, sizeof(char), MAX_NAME_LENGTH, dirFile);
+        if (strcmp(nameBuffer, filename) == 0) {
+            printf("\nError: File '%s' already exists.\n", filename);
+            fclose(dirFile);
+            return;
+        }
+    }
+    fclose(dirFile);
+
+    // Add to inodes list
     strcpy(iNodesList[index].name, filename);
     iNodesList[index].parentInode = currentINode.inode;
     iNodesList[index].inode = (uint32_t) index;
     iNodesList[index].type = 'f'; // 'f' for file
 
     // Create a new file for the inode
-    char *inodeStr = uint32_to_str((uint32_t) index);
-    char filepath[256];
-    snprintf(filepath, sizeof(filepath), "%s/%s", dir, inodeStr);
+    char entry4[MAX_NAME_LENGTH] = {0};
+    strcpy(entry4, filepath);
+    snprintf(filepath, MAX_NAME_LENGTH, "%s/%d", dir, index);
 
     FILE *file = fopen(filepath, "wb");
     if (file == NULL) {
@@ -367,8 +409,6 @@ void touch(const char* filename) {
     fwrite(&fileType, sizeof(char), 1, file); // Write file type
 
     fclose(file);
-
-    free(inodeStr);
     free(parentInodeStr);
     index++;
 }
