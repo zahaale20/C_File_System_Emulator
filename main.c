@@ -216,7 +216,7 @@ void cd(const char *directory){
                     if (strcmp(foundName, directory) == 0) {
                         errorMessage = false;
                         if (iNodesList[(int) (temp_inode)].type == 'f'){
-                            printf("Error: You cannot cd into a file. Ex: cd <directory>\n");
+                            printf("\nError: You cannot cd into a file. Ex: cd <directory>\n");
                             break;
                         }
                         currentINode.parentInode = currentINode.inode;
@@ -250,7 +250,27 @@ void cd(const char *directory){
 }
 
 void mkdir(const char* directory) {
-    printf("INDEX: %d\n", index);
+    // Check if directory already exists in the current directory
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "%s/%u", dir, currentINode.inode);
+    FILE *dirFile = fopen(filepath, "rb");
+    if (dirFile == NULL) {
+        perror("Error opening directory file");
+        return;
+    }
+
+    uint32_t temp_inode;
+    char nameBuffer[MAX_NAME_LENGTH];
+    while (fread(&temp_inode, sizeof(uint32_t), 1, dirFile) == 1) {
+        fread(nameBuffer, sizeof(char), MAX_NAME_LENGTH, dirFile);
+        if (strcmp(nameBuffer, directory) == 0) {
+            printf("\nError: Directory '%s' already exists.\n", directory);
+            fclose(dirFile);
+            return;
+        }
+    }
+    fclose(dirFile);
+
     strcpy(iNodesList[index].name, directory);
     iNodesList[index].parentInode = currentINode.inode;
     iNodesList[index].inode = (uint32_t) index;
@@ -288,9 +308,12 @@ void mkdir(const char* directory) {
         exit(1);
     }
 
+    char entry3[MAX_NAME_LENGTH] = {'0'};
+    strcpy(entry3, directory);
+
     // Append new directory entry to parent directory
     fwrite(&index, sizeof(uint32_t), 1, file); // Write new directory's inode number
-    fwrite(directory, sizeof(char), strlen(directory) + 1, file); // Write new directory's name
+    fwrite(entry3, sizeof(char), MAX_NAME_LENGTH, file); // Write new directory's name
 
     // Close the file
     fclose(file);
@@ -315,8 +338,83 @@ void mkdir(const char* directory) {
     index++;
 }
 
-void touch (const char *filename){
+void touch(const char* filename) {
+    // Check if file already exists in the current directory
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "%s/%u", dir, currentINode.inode);
+    FILE *dirFile = fopen(filepath, "rb");
+    if (dirFile == NULL) {
+        perror("Error opening directory file");
+        return;
+    }
 
+    uint32_t temp_inode;
+    char nameBuffer[MAX_NAME_LENGTH];
+    while (fread(&temp_inode, sizeof(uint32_t), 1, dirFile) == 1) {
+        fread(nameBuffer, sizeof(char), MAX_NAME_LENGTH, dirFile);
+        if (strcmp(nameBuffer, filename) == 0) {
+            printf("\nError: File '%s' already exists.\n", filename);
+            fclose(dirFile);
+            return;
+        }
+    }
+    fclose(dirFile);
+
+    // Add to inodes list
+    strcpy(iNodesList[index].name, filename);
+    iNodesList[index].parentInode = currentINode.inode;
+    iNodesList[index].inode = (uint32_t) index;
+    iNodesList[index].type = 'f'; // 'f' for file
+
+    // Create a new file for the inode
+    char entry4[MAX_NAME_LENGTH] = {0};
+    strcpy(entry4, filepath);
+    snprintf(filepath, MAX_NAME_LENGTH, "%s/%d", dir, index);
+
+    FILE *file = fopen(filepath, "wb");
+    if (file == NULL) {
+        perror("Error opening file for writing");
+        exit(1);
+    }
+
+    // Write any initial content or metadata for the file
+    // For example, writing the filename as initial content
+    fwrite(filename, sizeof(char), strlen(filename), file);
+
+    fclose(file);
+
+    // Update parent directory
+    char *parentInodeStr = uint32_to_str(currentINode.inode);
+    snprintf(filepath, sizeof(filepath), "%s/%s", dir, parentInodeStr);
+
+    file = fopen(filepath, "ab");
+    if (file == NULL) {
+        perror("Error opening parent directory file for writing");
+        exit(1);
+    }
+
+    // Append new file entry to parent directory
+    fwrite(&index, sizeof(uint32_t), 1, file); // Write new file's inode number
+    fwrite(filename, sizeof(char), strlen(filename) + 1, file); // Write new file's name
+
+    fclose(file);
+
+    // Update inodes_list file
+    snprintf(filepath, sizeof(filepath), "%s/inodes_list", dir);
+    file = fopen(filepath, "ab");
+    if (file == NULL) {
+        perror("Error opening inodes_list file for writing");
+        exit(1);
+    }
+
+    // Write new inode information to inodes_list
+    fwrite(&index, sizeof(uint32_t), 1, file); // Write inode number
+    char fileType = 'f';
+    fwrite(&fileType, sizeof(char), 1, file); // Write file type
+
+    fclose(file);
+    free(parentInodeStr);
+    index++;
 }
 
 int main(int argc, char *argv[]) {
@@ -367,6 +465,9 @@ int main(int argc, char *argv[]) {
             } else if (strncmp(command, "mkdir ", 6) == 0) {
                 const char *directory = command + 6;
                 mkdir(directory);
+            } else if (strncmp(command, "touch ", 6) == 0) {
+                const char *filename = command + 6;
+                touch(filename);
             } else {
                 printf("\nError: '%s' is an unknown command. Try Again.\n", command);
             }
