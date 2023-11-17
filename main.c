@@ -19,7 +19,7 @@ Inode currentINode;
 Inode iNodesList[MAX_INODES];
 const char *dir;
 int index = 0;
-bool initial_load = false;
+bool loadbool = false;
 
 void *checked_malloc(int len) {
     void *p = malloc(len);
@@ -51,7 +51,7 @@ void loadInode(uint32_t inode, char type, int total) {
     FILE *file;
     char character; /*Variable to store the read character*/
 
-    printf("FILE PATH: %s\n", filename);
+    // printf("FILE PATH: %s\n", filename);
     
     /*Open the binary file in read mode*/
     file = fopen(filename, "rb"); // "rb" stands for read binary
@@ -67,6 +67,8 @@ void loadInode(uint32_t inode, char type, int total) {
     char prev = '\0';
     char curr = '\0';
 
+    char foundName[MAX_NAME_LENGTH] = {'\0'};
+
     while (fread(&character, sizeof(char), 1, file) == 1) {
         if (char_count == 1) {
             prev = character;
@@ -74,21 +76,28 @@ void loadInode(uint32_t inode, char type, int total) {
                 // printf("This is a directory! %c\n", character);
             } else {
                 printf("%c", character);
+                //strncat(foundName, &character, 1);
             }
         } else {
             curr = character;
             if (prev == 0 && curr != 0) {
                 if (!isprint(curr) && curr != 46) {
-                    // printf("INODE #%d:", character);
+                    //printf("INODE #%d:", character);
                 } else {
                     printf("%c", character);
+                    //strncat(foundName, &character, 1);
                 }
             } else if (prev != 0 && curr != 0) {
                 if (isprint(curr)) {
                     printf("%c", character);
+                    //strncat(foundName, &character, 1);
                 }
             } else if (prev != 0 && curr == 0) {
                 //printf("Add null terminator. String is done!\n");
+                if (foundName[0] != '\0') {
+                    //printf("%s\n", foundName);
+                    // memset(foundName, 0, sizeof(foundName));
+                }
                 printf("\n");
             }
         }
@@ -128,11 +137,9 @@ void loadInodesList(char *filename) {
             inode = character;
         } else if(character != 0) {
             type = character;
-            printf("NEW FILE/DIR: %d, %c\n", inode, type);
+            // printf("NEW FILE/DIR: %d, %c\n", inode, type);
             iNodesList[index].inode = inode;
             iNodesList[index].type = type;
-            iNodesList[index].parentInode = getParentInode(inode);
-            strcpy(iNodesList[index].name, getNameInode(inode));
             index = index + 1;
         }
         char_count = char_count + 1;
@@ -144,11 +151,6 @@ void loadInodesList(char *filename) {
     }
     
     fclose(file);
-
-    for (size_t i = 0; i < index; i++) {
-        printf("\n\nNEW INODE: %d\n", iNodesList[i].inode);
-        loadInode(iNodesList[i].inode, iNodesList[i].type, index);
-    }
 }
 
 void ls() {
@@ -161,6 +163,9 @@ void cd(const char *directory){
 
     } else if (strcmp(directory, "..") == 0){
         currentINode.inode = currentINode.parentInode;
+        currentINode.parentInode = iNodesList[(int)currentINode.inode].parentInode;
+        currentINode.type = iNodesList[(int)currentINode.inode].type;
+        strcpy(currentINode.name, iNodesList[(int)currentINode.inode].name);
 
     } else {
 
@@ -182,6 +187,7 @@ void cd(const char *directory){
         uint32_t temp_inode = 0;
         char prev = '\0';
         char curr = '\0';
+        bool errorMessage = true;
 
         char foundName[MAX_NAME_LENGTH];
 
@@ -208,17 +214,30 @@ void cd(const char *directory){
                 } else if (prev != 0 && curr == 0) {
                     //printf("Add null terminator. String is done!\n");
                     if (strcmp(foundName, directory) == 0) {
+                        errorMessage = false;
+                        if (iNodesList[(int) (temp_inode)].type == 'f'){
+                            printf("Error: You cannot cd into a file. Ex: cd <directory>\n");
+                            break;
+                        }
                         currentINode.parentInode = currentINode.inode;
                         currentINode.inode = temp_inode;
+                        currentINode.type = iNodesList[(int)(currentINode.inode)].type;
                         strcpy(currentINode.name, directory);
+
+                        iNodesList[(int)(currentINode.inode)].parentInode = currentINode.parentInode;
+                        strcpy(iNodesList[(int)(currentINode.inode)].name, directory);
+                        
+                        break; 
                     } else {
                         memset(foundName, 0, sizeof(foundName));
                     }
                 }
             }
-
             char_count = char_count + 1;
             prev = character;
+        }
+        if(errorMessage == true){
+            printf("\nError: directory doesn't exist. Use command 'ls' to see all available directories.");
         }
 
         if (ferror(file)) {
@@ -227,6 +246,7 @@ void cd(const char *directory){
         }
         fclose(file);
     }
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -239,12 +259,16 @@ int main(int argc, char *argv[]) {
     dir = argv[1];
     char filepath[256];
     sprintf(filepath, "%s/inodes_list", dir);
-    loadInodesList(filepath); 
+    loadInodesList(filepath); //sets inode and type
 
     // Requirement 3: user starts at inode 0
     currentINode.inode = 0;
     currentINode.parentInode = 0;
-    strcpy(currentINode.type, iNodesList[currentINode.inode].type);
+    currentINode.type = iNodesList[(int)(currentINode.inode)].type;
+    strcpy(currentINode.name, dir);
+
+    iNodesList[(int)(currentINode.inode)].parentInode = 0;
+    strcpy(iNodesList[(int)(currentINode.inode)].name, dir); // sets name to parent folder (empty or fs)
 
     if (currentINode.type == 'f'){
         perror("Error: Inode 0 is a file, not a directory");
@@ -252,12 +276,16 @@ int main(int argc, char *argv[]) {
     } else {
         // Requirement 4: implementing exit, cd, ls, mkdir, touch
         char command[256];
-
+        bool start = false;
         while (true) {
-            printf("\nEnter command: ");
+            if (start == false){
+                printf("--> Enter command: ");
+                start = true;
+            } else {
+                printf("\n--> Enter command: ");
+            }
             fgets(command, sizeof(command), stdin);
             command[strcspn(command, "\n")] = 0;
-            printf("\n");
 
             if (strcmp(command, "exit") == 0) {
                 return 0;
@@ -267,7 +295,7 @@ int main(int argc, char *argv[]) {
                 const char *directory = command + 3;
                 cd(directory);
             } else {
-                printf("Error: '%s' is an unknown command. Try Again.\n", command);
+                printf("\nError: '%s' is an unknown command. Try Again.\n", command);
             }
         }
     }
