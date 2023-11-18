@@ -8,6 +8,8 @@
 #define MAX_INODES 1024
 #define MAX_NAME_LENGTH 32
 
+
+// define inode structure
 typedef struct {
     uint32_t inode;
     uint32_t parentInode;
@@ -15,12 +17,14 @@ typedef struct {
     char name[32];
 } Inode;
 
+// global variables
 Inode currentINode;
 Inode iNodesList[MAX_INODES];
 const char *dir;
 int index = 0;
 bool loadbool = false;
 
+// check memory
 void *checked_malloc(int len) {
     void *p = malloc(len);
     if (p == NULL)
@@ -31,6 +35,7 @@ void *checked_malloc(int len) {
     return p;
 }
 
+// convert uint32_t to str
 char *uint32_to_str(uint32_t i) {
     /*pretend to print to a string to get length*/
     int length = snprintf(NULL, 0, "%lu", (unsigned long)i);
@@ -43,6 +48,7 @@ char *uint32_to_str(uint32_t i) {
     return str;
 }
 
+// load an individual inode
 void loadInode(uint32_t inode, char type, int total) {
     char *inodeStr = uint32_to_str(inode);
     char filename[256];
@@ -67,37 +73,25 @@ void loadInode(uint32_t inode, char type, int total) {
     char prev = '\0';
     char curr = '\0';
 
-    char foundName[MAX_NAME_LENGTH] = {'\0'};
-
     while (fread(&character, sizeof(char), 1, file) == 1) {
         if (char_count == 1) {
             prev = character;
             if (type == 'd') {
-                // printf("This is a directory! %d\n", character);
             } else {
                 printf("%c", character);
-                //strncat(foundName, &character, 1);
             }
         } else {
             curr = character;
             if (prev == 0 && curr != 0) {
                 if (!isprint(curr) && curr != 46) {
-                    //printf("INODE #%d:", character);
                 } else {
                     printf("%c", character);
-                    //strncat(foundName, &character, 1);
                 }
             } else if (prev != 0 && curr != 0) {
                 if (isprint(curr)) {
                     printf("%c", character);
-                    //strncat(foundName, &character, 1);
                 }
             } else if (prev != 0 && curr == 0) {
-                //printf("Add null terminator. String is done!\n");
-                if (foundName[0] != '\0') {
-                    //printf("%s\n", foundName);
-                    // memset(foundName, 0, sizeof(foundName));
-                }
                 printf("\n");
             }
         }
@@ -113,7 +107,7 @@ void loadInode(uint32_t inode, char type, int total) {
     fclose(file);
 }
 
-
+// load inodes from inodes_list (inode, type)
 void loadInodesList(char *filename) {
     FILE *file;
     char character; /*Variable to store the read character*/
@@ -153,10 +147,16 @@ void loadInodesList(char *filename) {
     fclose(file);
 }
 
+// load current directory/inode
+// ls
 void ls() {
     loadInode(currentINode.inode, currentINode.type, index);
 }
 
+// change directory
+// cd . : current directory
+// cd .. : parent directory
+// cd <name> : <name> directory
 void cd(const char *directory){
 
     if (strcmp(directory, ".") == 0){
@@ -249,6 +249,8 @@ void cd(const char *directory){
     printf("\n");
 }
 
+// make a new directory (as long as there isn't another directory or file with the same name)
+// mkdir <name> : makes a new directory called <name>
 void mkdir(const char* directory) {
     // Check if directory already exists in the current directory
     char filepath[256];
@@ -318,7 +320,7 @@ void mkdir(const char* directory) {
     // Close the file
     fclose(file);
     
-    // Update inodes_list file
+    // Requirement #5: update inodes_list file
     snprintf(filename, sizeof(filename), "%s/inodes_list", dir);
     file = fopen(filename, "ab");
     if (file == NULL) {
@@ -399,7 +401,7 @@ void touch(const char* filename) {
 
     fclose(file);
 
-    // Update inodes_list file
+    // Requirement #5: update inodes_list file
     snprintf(filepath, sizeof(filepath), "%s/inodes_list", dir);
     file = fopen(filepath, "ab");
     if (file == NULL) {
