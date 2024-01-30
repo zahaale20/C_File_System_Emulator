@@ -1,3 +1,6 @@
+# C_File_System_Emulator
+
+
 NOTE: Requirement #5: update inodes_list file is not met when we exit the program. 
 Rather the update is done dynamically as commands touch and mkdir are used in the emulated terminal.
 
