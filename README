@@ -1,4 +1,24 @@
-# C_File_System_Emulator
+C_File_System_Emulator
+
+The "C_File_System_Emulator" GitHub repository presents my successfully completed project that emulates a basic file system in C. This project demonstrates my understanding and application of file system concepts, inode metadata management, and directory manipulation using C programming.
+
+Project Components and Functionalities:
+
+Inode and File Type Management: My program handles a fixed number of inodes, each representing either a directory or a file. The inode metadata includes an index and a type indicator ('d' for directory, 'f' for file).
+
+Directory Structure: I implemented directories as special types of files. Each directory entry consists of an inode number and a file name, with limitations on name length for compatibility with directory format. These entries are stored in binary format and accessed using read/fread operations.
+
+File System Initialization: The program starts in a root directory (inode 0) and loads an inodes_list file, verifying inode numbers and file type indicators. Any discrepancies or invalid entries are reported and ignored.
+
+User Commands: I implemented functionalities to process user commands such as cd (change directory), ls (list directory contents), mkdir (create a new directory), and touch (create a new file). Each command interacts with the emulated file system, updating inode information and directory contents as needed.
+
+State Preservation on Exit: On exiting the program (via the exit command or EOF), the state of the inode list is saved, reflecting any modifications made during the session.
+
+Memory Management Utility Functions: I included utility functions like checked_malloc for safe memory allocation and uint32_to_str for converting integers to strings, crucial for handling inode data.
+
+File System Directory Argument Handling: The program takes a single command-line argument specifying the directory that stores the emulated file system, ensuring that the specified directory exists.
+
+
 
 
 NOTE: Requirement #5: update inodes_list file is not met when we exit the program. 
